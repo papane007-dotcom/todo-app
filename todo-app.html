@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ToDoアプリ</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: #0F0F0F;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      font-family: 'Georgia', serif;
+      padding: 40px 24px;
+    }
+    #app { width: 100%; max-width: 540px; }
+
+    /* Header */
+    .header { margin-bottom: 28px; }
+    .title-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+    h1 { color: #F5F0E8; font-size: 42px; font-weight: 300; letter-spacing: -1px; }
+    .subtitle { color: #666; font-size: 14px; font-style: italic; }
+
+    /* Google Auth */
+    .auth-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #1A1A1A; border: 1px solid #2A2A2A;
+      border-radius: 12px; padding: 10px 14px; margin-bottom: 20px;
+    }
+    .auth-status { font-size: 13px; color: #666; }
+    .auth-status.connected { color: #4ECDC4; }
+    .auth-btn {
+      font-size: 12px; padding: 6px 14px; border-radius: 8px; border: none;
+      cursor: pointer; font-family: 'Georgia', serif; transition: opacity 0.2s;
+    }
+    .auth-btn.login  { background: #4285F4; color: #fff; }
+    .auth-btn.logout { background: #333; color: #999; }
+    .auth-btn:hover  { opacity: 0.85; }
+
+    /* Progress */
+    .progress-meta { display: flex; justify-content: space-between; margin-bottom: 6px; margin-top: 12px; }
+    .progress-count { color: #888; font-size: 12px; }
+    .progress-pct { color: #FF6B6B; font-size: 12px; font-weight: 600; }
+    .progress-track { height: 3px; background: #222; border-radius: 2px; overflow: hidden; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #FF6B6B, #FFE66D); border-radius: 2px; transition: width 0.5s ease; }
+
+    /* Input box */
+    .input-box {
+      background: #1A1A1A; border: 1px solid #2A2A2A;
+      border-radius: 16px; padding: 16px; margin-bottom: 24px;
+    }
+    .input-box input[type="text"] {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: #F5F0E8; font-size: 16px; font-family: 'Georgia', serif; margin-bottom: 10px;
+    }
+    .input-box input[type="text"]::placeholder { color: #555; }
+    .date-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .date-label { color: #666; font-size: 12px; white-space: nowrap; }
+    .input-box input[type="date"] {
+      background: #222; border: 1px solid #333; border-radius: 8px;
+      color: #F5F0E8; font-size: 13px; font-family: 'Georgia', serif;
+      padding: 4px 8px; outline: none; cursor: pointer;
+    }
+    .input-box input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+    .bottom-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .cat-buttons { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+    .cat-btn {
+      padding: 4px 12px; border-radius: 20px; border: 1px solid #333;
+      background: transparent; color: #666; font-size: 12px; cursor: pointer;
+      transition: all 0.2s; font-family: 'Georgia', serif;
+    }
+    .add-btn {
+      background: #F5F0E8; color: #0F0F0F; border: none; border-radius: 10px;
+      padding: 8px 20px; font-size: 14px; cursor: pointer;
+      font-family: 'Georgia', serif; font-weight: 600; white-space: nowrap;
+    }
+    .add-btn:hover { opacity: 0.85; }
+
+    /* Filter */
+    .filter-row { display: flex; gap: 4px; margin-bottom: 16px; }
+    .filter-btn {
+      padding: 6px 16px; border-radius: 8px; border: none;
+      background: transparent; color: #666; font-size: 13px;
+      cursor: pointer; font-family: 'Georgia', serif;
+    }
+    .filter-btn.active { background: #F5F0E8; color: #0F0F0F; }
+
+    /* Todo list */
+    #todo-list { display: flex; flex-direction: column; gap: 8px; }
+    .todo-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; background: #1A1A1A; border: 1px solid #2A2A2A;
+      border-radius: 12px; transition: opacity 0.3s;
+    }
+    .todo-item.done { opacity: 0.45; border-color: #1F1F1F; }
+    .checkbox {
+      width: 22px; height: 22px; border-radius: 6px; border: 2px solid #333;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all 0.2s;
+    }
+    .todo-main { flex: 1; min-width: 0; }
+    .todo-text { color: #F5F0E8; font-size: 15px; }
+    .todo-item.done .todo-text { text-decoration: line-through; color: #444; }
+    .todo-due { font-size: 11px; margin-top: 3px; color: #666; }
+    .todo-due.overdue { color: #FF6B6B; }
+    .todo-due.today   { color: #FFE66D; }
+    .todo-due.soon    { color: #4ECDC4; }
+    .todo-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .cat-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+    .gcal-badge {
+      font-size: 10px; padding: 2px 6px; border-radius: 6px;
+      background: #4285F415; color: #4285F4; white-space: nowrap;
+    }
+    .del-btn {
+      background: transparent; border: none; color: #444;
+      cursor: pointer; padding: 2px; display: flex; align-items: center;
+      flex-shrink: 0; transition: color 0.2s;
+    }
+    .del-btn:hover { color: #FF6B6B; }
+    .empty-msg { text-align: center; color: #444; padding: 40px 0; font-style: italic; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #222; color: #F5F0E8; font-size: 13px; padding: 10px 20px;
+      border-radius: 10px; border: 1px solid #333; opacity: 0;
+      transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="title-row">
+      <h1>タスク</h1>
+      <span class="subtitle">/ todo</span>
+    </div>
+  </div>
+
+  <!-- Google Auth bar -->
+  <div class="auth-bar">
+    <span class="auth-status" id="auth-status">Googleカレンダー：未接続</span>
+    <button class="auth-btn login" id="auth-btn" onclick="handleAuth()">Googleでログイン</button>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-meta">
+    <span class="progress-count" id="progress-count">0 / 0 完了</span>
+    <span class="progress-pct" id="progress-pct">0%</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-box" style="margin-top:20px;">
+    <input type="text" id="todo-input" placeholder="新しいタスクを入力...">
+    <div class="date-row">
+      <span class="date-label">📅 期限：</span>
+      <input type="date" id="due-date">
+    </div>
+    <div class="bottom-row">
+      <div class="cat-buttons" id="cat-buttons"></div>
+      <button class="add-btn" id="add-btn">追加</button>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-row" id="filter-row"></div>
+
+  <!-- List -->
+  <div id="todo-list"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ─── 設定 ────────────────────────────────────────
+  const CLIENT_ID = '330957483713-ejf1f0ncm1brucco4jdt57l9fe3kro6t.apps.googleusercontent.com';
+  const SCOPES    = 'https://www.googleapis.com/auth/calendar.events';
+
+  const CATEGORIES = ["仕事", "個人", "買い物", "その他"];
+  const CAT_COLORS  = { "仕事":"#FF6B6B", "個人":"#4ECDC4", "買い物":"#FFE66D", "その他":"#A8E6CF" };
+  const FILTERS     = ["すべて", "未完了", "完了"];
+
+  let todos = [
+    { id: 1, text: "Claudeを使ってみる",  done: true,  category: "個人", due: "", eventId: null },
+    { id: 2, text: "Artifactsを体験する", done: true,  category: "仕事", due: "", eventId: null },
+    { id: 3, text: "ToDoアプリを作る",    done: false, category: "仕事", due: getToday(), eventId: null },
+  ];
+  let selCat    = "個人";
+  let selFilter = "すべて";
+  let accessToken = null;
+  let tokenClient = null;
+
+  // ─── Google Auth ──────────────────────────────────
+  window.onload = function() {
+    // GSIライブラリの読み込みを待つ
+    const check = setInterval(function() {
+      if (window.google && window.google.accounts) {
+        clearInterval(check);
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: function(resp) {
+            if (resp.error) { showToast('ログイン失敗: ' + resp.error); return; }
+            accessToken = resp.access_token;
+            updateAuthUI(true);
+            showToast('✅ Googleカレンダーに接続しました');
+          }
+        });
+      }
+    }, 200);
+    render();
+  };
+
+  function handleAuth() {
+    if (accessToken) {
+      // ログアウト
+      google.accounts.oauth2.revoke(accessToken, function() {});
+      accessToken = null;
+      updateAuthUI(false);
+      showToast('ログアウトしました');
+    } else {
+      // ログイン
+      if (tokenClient) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+      } else {
+        showToast('Googleライブラリ読み込み中...');
+      }
+    }
+  }
+
+  function updateAuthUI(connected) {
+    const status = document.getElementById('auth-status');
+    const btn    = document.getElementById('auth-btn');
+    if (connected) {
+      status.textContent = '✅ Googleカレンダー：接続済み';
+      status.className   = 'auth-status connected';
+      btn.textContent    = 'ログアウト';
+      btn.className      = 'auth-btn logout';
+    } else {
+      status.textContent = 'Googleカレンダー：未接続';
+      status.className   = 'auth-status';
+      btn.textContent    = 'Googleでログイン';
+      btn.className      = 'auth-btn login';
+    }
+  }
+
+  // ─── Google Calendar API ──────────────────────────
+  async function addToCalendar(todo) {
+    if (!accessToken || !todo.due) return null;
+    const event = {
+      summary: '[ToDo] ' + todo.text,
+      description: 'カテゴリ：' + todo.category,
+      start: { date: todo.due },
+      end:   { date: todo.due },
+      colorId: todo.category === '仕事' ? '11' :
+               todo.category === '個人' ? '7'  :
+               todo.category === '買い物'? '5'  : '2',
+    };
+    try {
+      const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(event),
+      });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      return data.id;
+    } catch(e) {
+      showToast('カレンダー登録に失敗しました');
+      return null;
+    }
+  }
+
+  async function deleteFromCalendar(eventId) {
+    if (!accessToken || !eventId) return;
+    try {
+      await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events/' + eventId, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+      });
+    } catch(e) { /* silent */ }
+  }
+
+  // ─── Helpers ──────────────────────────────────────
+  function getToday() {
+    return new Date().toISOString().split("T")[0];
+  }
+  function dueMeta(due) {
+    if (!due) return null;
+    const today = getToday();
+    if (due < today) return { label: "⚠ 期限切れ: " + fmtDate(due), cls: "overdue" };
+    if (due === today) return { label: "⏰ 今日まで", cls: "today" };
+    const diff = Math.round((new Date(due) - new Date(today)) / 86400000);
+    if (diff <= 3) return { label: "🔔 あと" + diff + "日", cls: "soon" };
+    return { label: "📅 " + fmtDate(due), cls: "" };
+  }
+  function fmtDate(d) {
+    const [y, m, day] = d.split("-");
+    return y + "年" + m + "月" + day + "日";
+  }
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(function() { el.classList.remove('show'); }, 3000);
+  }
+
+  // ─── Render ───────────────────────────────────────
+  function render() {
+    renderCatButtons();
+    renderFilters();
+    renderList();
+    renderProgress();
+  }
+
+  function renderCatButtons() {
+    const el = document.getElementById("cat-buttons");
+    el.innerHTML = "";
+    CATEGORIES.forEach(function(c) {
+      const btn = document.createElement("button");
+      btn.className = "cat-btn";
+      btn.textContent = c;
+      if (c === selCat) {
+        btn.style.borderColor = CAT_COLORS[c];
+        btn.style.background  = CAT_COLORS[c] + "22";
+        btn.style.color       = CAT_COLORS[c];
+      }
+      btn.onclick = function() { selCat = c; render(); };
+      el.appendChild(btn);
+    });
+  }
+
+  function renderFilters() {
+    const el = document.getElementById("filter-row");
+    el.innerHTML = "";
+    FILTERS.forEach(function(f) {
+      const btn = document.createElement("button");
+      btn.className = "filter-btn" + (f === selFilter ? " active" : "");
+      btn.textContent = f;
+      btn.onclick = function() { selFilter = f; render(); };
+      el.appendChild(btn);
+    });
+  }
+
+  function renderList() {
+    const el = document.getElementById("todo-list");
+    el.innerHTML = "";
+    const visible = todos.filter(function(t) {
+      if (selFilter === "未完了") return !t.done;
+      if (selFilter === "完了")   return  t.done;
+      return true;
+    });
+    if (visible.length === 0) {
+      el.innerHTML = '<div class="empty-msg">タスクがありません</div>';
+      return;
+    }
+    visible.forEach(function(todo) {
+      const color = CAT_COLORS[todo.category];
+      const item  = document.createElement("div");
+      item.className = "todo-item" + (todo.done ? " done" : "");
+
+      // Checkbox
+      const chk = document.createElement("div");
+      chk.className = "checkbox";
+      chk.style.borderColor = todo.done ? color : "#333";
+      chk.style.background  = todo.done ? color + "33" : "transparent";
+      if (todo.done) {
+        chk.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+      chk.onclick = function() { todo.done = !todo.done; render(); };
+
+      // Main
+      const main = document.createElement("div");
+      main.className = "todo-main";
+      const txt = document.createElement("div");
+      txt.className = "todo-text";
+      txt.textContent = todo.text;
+      main.appendChild(txt);
+      if (todo.due && !todo.done) {
+        const meta = dueMeta(todo.due);
+        if (meta) {
+          const dueEl = document.createElement("div");
+          dueEl.className = "todo-due " + meta.cls;
+          dueEl.textContent = meta.label;
+          main.appendChild(dueEl);
+        }
+      }
+
+      // Meta (tag + gcal badge)
+      const metaDiv = document.createElement("div");
+      metaDiv.className = "todo-meta";
+      const tag = document.createElement("span");
+      tag.className = "cat-tag";
+      tag.style.color = color;
+      tag.style.background = color + "15";
+      tag.textContent = todo.category;
+      metaDiv.appendChild(tag);
+      if (todo.eventId) {
+        const badge = document.createElement("span");
+        badge.className = "gcal-badge";
+        badge.textContent = "📅 カレンダー";
+        metaDiv.appendChild(badge);
+      }
+
+      // Delete
+      const del = document.createElement("button");
+      del.className = "del-btn";
+      del.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2L12 12M12 2L2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+      del.onclick = function() {
+        if (todo.eventId) deleteFromCalendar(todo.eventId);
+        todos = todos.filter(function(t) { return t.id !== todo.id; });
+        render();
+      };
+
+      item.appendChild(chk);
+      item.appendChild(main);
+      item.appendChild(metaDiv);
+      item.appendChild(del);
+      el.appendChild(item);
+    });
+  }
+
+  function renderProgress() {
+    const done  = todos.filter(function(t) { return t.done; }).length;
+    const total = todos.length;
+    const pct   = total ? Math.round(done / total * 100) : 0;
+    document.getElementById("progress-count").textContent = done + " / " + total + " 完了";
+    document.getElementById("progress-pct").textContent   = pct + "%";
+    document.getElementById("progress-bar").style.width   = pct + "%";
+  }
+
+  // ─── Add Todo ─────────────────────────────────────
+  async function addTodo() {
+    const inputEl = document.getElementById("todo-input");
+    const dueEl   = document.getElementById("due-date");
+    const text    = inputEl.value.trim();
+    if (!text) return;
+
+    const todo = { id: Date.now(), text: text, done: false, category: selCat, due: dueEl.value, eventId: null };
+    todos.push(todo);
+    inputEl.value = "";
+    dueEl.value   = "";
+    render();
+
+    // Googleカレンダーに登録
+    if (accessToken && todo.due) {
+      showToast('📅 カレンダーに登録中...');
+      const eventId = await addToCalendar(todo);
+      if (eventId) {
+        todo.eventId = eventId;
+        render();
+        showToast('✅ カレンダーに登録しました！');
+      }
+    }
+  }
+
+  document.getElementById("add-btn").onclick = addTodo;
+  document.getElementById("todo-input").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") addTodo();
+  });
+</script>
+</body>
+</html>
