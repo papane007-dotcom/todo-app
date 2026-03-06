@@ -217,6 +217,64 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 200;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: #1A1A1A; border: 1px solid #2A2A2A;
+      border-radius: 20px; padding: 24px; width: 100%; max-width: 480px;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .modal-title { font-size: 18px; color: #F5F0E8; font-weight: 600; margin-bottom: 20px; }
+    .modal-section { margin-bottom: 16px; }
+    .modal-label { font-size: 12px; color: #888; margin-bottom: 6px; display: block; }
+    .modal input[type="text"],
+    .modal input[type="time"],
+    .modal textarea,
+    .modal select {
+      width: 100%; background: #222; border: 1px solid #333; border-radius: 10px;
+      color: #F5F0E8; font-size: 14px; font-family: 'Georgia', serif;
+      padding: 10px 12px; outline: none;
+    }
+    .modal textarea { resize: vertical; min-height: 80px; }
+    .modal input[type="time"] { cursor: pointer; }
+    .modal input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+    .modal select option { background: #222; }
+    .modal-time-row { display: flex; gap: 12px; align-items: center; }
+    .modal-time-row .modal-time-item { flex: 1; }
+    .modal-time-sep { color: #666; font-size: 18px; padding-top: 20px; flex-shrink: 0; }
+    .modal-reminder-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .reminder-btn {
+      padding: 6px 14px; border-radius: 20px; border: 1px solid #333;
+      background: transparent; color: #666; font-size: 12px; cursor: pointer;
+      font-family: 'Georgia', serif; transition: all 0.2s;
+    }
+    .reminder-btn.active { border-color: #4ECDC4; background: #4ECDC422; color: #4ECDC4; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid #222; }
+    .modal-cancel-btn {
+      background: transparent; border: 1px solid #333; color: #666;
+      border-radius: 10px; padding: 9px 20px; font-size: 14px; cursor: pointer;
+      font-family: 'Georgia', serif;
+    }
+    .modal-save-btn {
+      background: #F5F0E8; color: #0F0F0F; border: none;
+      border-radius: 10px; padding: 9px 24px; font-size: 14px; cursor: pointer;
+      font-family: 'Georgia', serif; font-weight: 600;
+    }
+    .modal-save-btn:hover { opacity: 0.85; }
+    .gcal-detail-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .gcal-toggle {
+      display: flex; align-items: center; gap: 8px;
+      background: #4285F411; border: 1px solid #4285F433;
+      border-radius: 10px; padding: 8px 12px; cursor: pointer;
+    }
+    .gcal-toggle input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; accent-color: #4285F4; }
+    .gcal-toggle-label { font-size: 13px; color: #4285F4; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -308,6 +366,57 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">📝 タスクの詳細</div>
+    <div class="modal-section">
+      <label class="modal-label">タスク名</label>
+      <input type="text" id="modal-text" placeholder="タスク名">
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">📅 日付</label>
+      <input type="text" id="modal-date-display" readonly style="color:#888;cursor:default;">
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">⏰ 時間（任意）</label>
+      <div class="modal-time-row">
+        <div class="modal-time-item"><label class="modal-label">開始</label><input type="time" id="modal-start-time"></div>
+        <div class="modal-time-sep">→</div>
+        <div class="modal-time-item"><label class="modal-label">終了</label><input type="time" id="modal-end-time"></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">📍 場所（任意）</label>
+      <input type="text" id="modal-location" placeholder="場所・住所など">
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">📄 説明・メモ（任意）</label>
+      <textarea id="modal-description" placeholder="メモや詳細を入力..."></textarea>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">🔔 リマインダー（任意・複数選択可）</label>
+      <div class="modal-reminder-row" id="modal-reminder-row">
+        <button class="reminder-btn" data-min="0" onclick="toggleReminder(this)">当日</button>
+        <button class="reminder-btn" data-min="10" onclick="toggleReminder(this)">10分前</button>
+        <button class="reminder-btn" data-min="30" onclick="toggleReminder(this)">30分前</button>
+        <button class="reminder-btn" data-min="60" onclick="toggleReminder(this)">1時間前</button>
+        <button class="reminder-btn" data-min="1440" onclick="toggleReminder(this)">1日前</button>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="gcal-toggle">
+        <input type="checkbox" id="modal-gcal-check" checked>
+        <span class="gcal-toggle-label">📅 Googleカレンダーに登録する</span>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeModal()">キャンセル</button>
+      <button class="modal-save-btn" onclick="saveFromModal()">追加する</button>
+    </div>
+  </div>
+</div>
 
 <script>
   // ─── Config ──────────────────────────────────────
@@ -410,13 +519,37 @@
 
   async function addToCalendar(todo) {
     if (!accessToken || !todo.due) return null;
+
+    // 時間あり → dateTime、なし → date（終日）
+    let start, end;
+    if (todo.startTime) {
+      start = { dateTime: todo.due + 'T' + todo.startTime + ':00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+      const endTime = todo.endTime || todo.startTime; // 終了未指定なら開始と同じ
+      end   = { dateTime: todo.due + 'T' + endTime + ':00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+    } else {
+      start = { date: todo.due };
+      end   = { date: todo.due };
+    }
+
+    // 説明文の組み立て
+    let descParts = ['カテゴリ：' + todo.category];
+    if (todo.description) descParts.push(todo.description);
+
+    // リマインダー
+    const reminders = (todo.reminders && todo.reminders.length)
+      ? { useDefault: false, overrides: todo.reminders.map(function(m) { return { method: 'popup', minutes: m }; }) }
+      : { useDefault: true };
+
     const event = {
       summary: '[ToDo] ' + todo.text,
-      description: 'カテゴリ：' + todo.category,
-      start: { date: todo.due },
-      end:   { date: todo.due },
+      description: descParts.join('\n'),
+      location: todo.location || undefined,
+      start: start,
+      end: end,
+      reminders: reminders,
       colorId: todo.category === '仕事' ? '11' : todo.category === '個人' ? '7' : todo.category === '買い物' ? '5' : '2',
     };
+
     try {
       const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
         method: 'POST',
@@ -686,16 +819,14 @@
   async function quickAddTodo() {
     const input = document.getElementById("quick-input");
     const text  = input.value.trim();
-    if (!text || !selectedDate) return;
-    const todo = { id: Date.now(), text: text, done: false, category: quickSelCat, due: selectedDate, eventId: null };
-    todos.push(todo);
-    input.value = "";
-    render();
-    if (accessToken) {
-      showToast('📅 カレンダーに登録中...');
-      const eventId = await addToCalendar(todo);
-      if (eventId) { todo.eventId = eventId; render(); showToast('✅ カレンダーに登録しました！'); }
+    if (!selectedDate) return;
+    // テキストがあればモーダルを開く、なければ日付だけセットして開く
+    if (text) {
+      document.getElementById("todo-input").value = text;
     }
+    selCat = quickSelCat;
+    input.value = "";
+    openModal(selectedDate);
   }
 
   document.addEventListener("DOMContentLoaded", function() {
@@ -787,22 +918,89 @@
     document.getElementById("progress-bar").style.width   = pct + "%";
   }
 
-  // ─── Add todo ────────────────────────────────────
-  async function addTodo() {
+  // ─── Modal ───────────────────────────────────────
+  let modalDue = "";
+
+  function openModal(due) {
     const inputEl = document.getElementById("todo-input");
     const dueEl   = document.getElementById("due-date");
     const text    = inputEl.value.trim();
-    if (!text) return;
-    const todo = { id: Date.now(), text: text, done: false, category: selCat, due: dueEl.value, eventId: null };
+
+    modalDue = due || dueEl.value || "";
+
+    document.getElementById("modal-text").value        = text;
+    document.getElementById("modal-date-display").value = modalDue ? fmtDate(modalDue) : "（日付未設定）";
+    document.getElementById("modal-start-time").value  = "";
+    document.getElementById("modal-end-time").value    = "";
+    document.getElementById("modal-location").value    = "";
+    document.getElementById("modal-description").value = "";
+    document.getElementById("modal-gcal-check").checked = true;
+
+    // Reset reminders
+    document.querySelectorAll(".reminder-btn").forEach(function(b) { b.classList.remove("active"); });
+
+    document.getElementById("modal-overlay").classList.add("show");
+    setTimeout(function() { document.getElementById("modal-text").focus(); }, 100);
+  }
+
+  function closeModal() {
+    document.getElementById("modal-overlay").classList.remove("show");
+  }
+
+  function toggleReminder(btn) {
+    btn.classList.toggle("active");
+  }
+
+  async function saveFromModal() {
+    const text = document.getElementById("modal-text").value.trim();
+    if (!text) { showToast("タスク名を入力してください"); return; }
+
+    const startTime = document.getElementById("modal-start-time").value;
+    const endTime   = document.getElementById("modal-end-time").value;
+    const location  = document.getElementById("modal-location").value.trim();
+    const desc      = document.getElementById("modal-description").value.trim();
+    const toGcal    = document.getElementById("modal-gcal-check").checked;
+
+    // Collect reminders
+    const reminders = [];
+    document.querySelectorAll(".reminder-btn.active").forEach(function(b) {
+      reminders.push(parseInt(b.getAttribute("data-min")));
+    });
+
+    const todo = {
+      id: Date.now(), text: text, done: false, category: selCat,
+      due: modalDue, eventId: null,
+      startTime: startTime, endTime: endTime,
+      location: location, description: desc, reminders: reminders
+    };
     todos.push(todo);
-    inputEl.value = "";
-    dueEl.value   = "";
+
+    // Clear main input
+    document.getElementById("todo-input").value = "";
+    document.getElementById("due-date").value   = "";
+    closeModal();
     render();
-    if (accessToken && todo.due) {
+
+    if (accessToken && toGcal && todo.due) {
       showToast('📅 カレンダーに登録中...');
       const eventId = await addToCalendar(todo);
       if (eventId) { todo.eventId = eventId; render(); showToast('✅ カレンダーに登録しました！'); }
+    } else {
+      showToast('✅ タスクを追加しました');
     }
+  }
+
+  // Close modal on overlay click
+  document.getElementById("modal-overlay").addEventListener("click", function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // ─── Add todo ────────────────────────────────────
+  function addTodo() {
+    const inputEl = document.getElementById("todo-input");
+    const text    = inputEl.value.trim();
+    if (!text) return;
+    openModal();
   }
 
   document.getElementById("add-btn").onclick = addTodo;
