@@ -234,7 +234,11 @@
     document.getElementById('save-btn').onclick = async () => {
       const title = document.getElementById('edit-title').value;
       if (!title) return alert("タイトルを入力してください");
+      
+      const tS = document.getElementById('edit-start').value;
+      const tE = document.getElementById('edit-end').value;
 
+      // 送信データのベース
       const eventData = {
         summary: isEdit ? title : '[ToDo] ' + title,
         description: document.getElementById('edit-desc').value,
@@ -242,17 +246,30 @@
         reminders: document.getElementById('edit-reminder').value === "none" ? { useDefault: true } : {
           useDefault: false,
           overrides: [{ method: 'popup', minutes: parseInt(document.getElementById('edit-reminder').value) }]
-        }
+        },
+        // 重要：startとendの構造を初期化
+        start: {},
+        end: {}
       };
 
-      const tS = document.getElementById('edit-start').value;
-      const tE = document.getElementById('edit-end').value;
       if (tS) {
-        eventData.start = { dateTime: `${selectedDate}T${tS}:00`, timeZone: 'Asia/Tokyo' };
-        eventData.end = { dateTime: `${selectedDate}T${tE || tS}:00`, timeZone: 'Asia/Tokyo' };
+        // 【時間指定あり】
+        eventData.start.dateTime = `${selectedDate}T${tS}:00`;
+        eventData.start.timeZone = 'Asia/Tokyo';
+        eventData.end.dateTime   = `${selectedDate}T${tE || tS}:00`;
+        eventData.end.timeZone   = 'Asia/Tokyo';
+        
+        // PATCH/PUTのエラー回避：dateフィールドを明示的に消す
+        eventData.start.date = null;
+        eventData.end.date = null;
       } else {
-        eventData.start = { date: selectedDate };
-        eventData.end = { date: selectedDate };
+        // 【終日】
+        eventData.start.date = selectedDate;
+        eventData.end.date   = selectedDate;
+        
+        // PATCH/PUTのエラー回避：dateTimeフィールドを明示的に消す
+        eventData.start.dateTime = null;
+        eventData.end.dateTime   = null;
       }
 
       if (isEdit) {
@@ -261,7 +278,6 @@
         await apiCall(`events`, 'POST', eventData);
       }
     };
-  }
 
   async function apiCall(endpoint, method, body) {
     try {
