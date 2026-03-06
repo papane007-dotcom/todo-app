@@ -268,14 +268,15 @@
 	    if (res.ok) {
 	      showToast("✅ 更新しました");
 	      closeModal();
-	      fetchGcalEvents(); // リストを再取得
+	      fetchGcalEvents(); 
 	    } else {
-	      console.error("API Error:", result);
-	      showToast("❌ 更新失敗: " + (result.error.message || "不明なエラー"));
+	      // 400エラーの内容を詳細にログ出力
+	      console.error("API Error Detail:", JSON.stringify(result, null, 2));
+	      showToast("❌ 更新失敗: " + (result.error.message || "形式エラー"));
 	    }
 	  } catch (e) {
 	    console.error("Network Error:", e);
-	    showToast("❌ 通信エラーが発生しました");
+	    showToast("❌ 通信エラー");
 	  }
 	}
   // --- 描画ロジック ---
@@ -333,18 +334,17 @@
     });
   }
 
-	  // --- モーダル内の保存ボタンの設定（openEditModal内） ---
+	// --- モーダル内の保存ボタンの設定（openEditModal内） ---
 	function openEditModal(ev) {
 	  document.getElementById('edit-title').value = ev.summary || "";
 	  document.getElementById('edit-desc').value = ev.description || "";
 	  
-	  // 既存の時間をセット
+	  // 既存の時間をセット（Google APIの形式から時刻を抽出）
 	  const startT = ev.start.dateTime ? ev.start.dateTime.split('T')[1].substring(0,5) : "";
 	  const endT = ev.end.dateTime ? ev.end.dateTime.split('T')[1].substring(0,5) : "";
 	  document.getElementById('edit-start').value = startT;
 	  document.getElementById('edit-end').value = endT;
 
-	  // 保存ボタンの動作を再定義
 	  const saveBtn = document.getElementById('save-btn');
 	  saveBtn.onclick = async () => {
 	    const newTitle = document.getElementById('edit-title').value;
@@ -352,28 +352,34 @@
 	    const newStart = document.getElementById('edit-start').value;
 	    const newEnd = document.getElementById('edit-end').value;
 
-	    // Google API 形式の構築
+	    // 送信データの土台
 	    const updatedData = {
 	      summary: newTitle,
 	      description: newDesc
 	    };
 
-	    // 時間が入力されている場合は dateTime、入力がない場合は既存の start/end を維持
+	    // 時間設定のロジック
 	    if (newStart) {
+	      // 時間指定がある場合
+	      const endTime = newEnd || newStart; // 終了時間がなければ開始と同じにする
 	      updatedData.start = { 
 	        dateTime: `${selectedDate}T${newStart}:00`, 
 	        timeZone: 'Asia/Tokyo' 
 	      };
-	      // 終了時間が未入力なら開始時間と同じにする（エラー回避）
-	      const endTime = newEnd || newStart;
 	      updatedData.end = { 
 	        dateTime: `${selectedDate}T${endTime}:00`, 
 	        timeZone: 'Asia/Tokyo' 
 	      };
+	      // PATCHでdateTimeを送る場合、古いdateフィールドが残っているとエラーになるためnullでクリア
+	      updatedData.start.date = null;
+	      updatedData.end.date = null;
 	    } else {
-	      // 時間指定がない場合は「終日」イベントとして扱う設定
+	      // 時間指定がない（終日）場合
 	      updatedData.start = { date: selectedDate };
 	      updatedData.end = { date: selectedDate };
+	      // 同様にdateTimeフィールドをクリア
+	      updatedData.start.dateTime = null;
+	      updatedData.end.dateTime = null;
 	    }
 
 	    await updateEvent(ev.id, updatedData);
