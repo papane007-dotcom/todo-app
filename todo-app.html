@@ -238,7 +238,6 @@
       const tS = document.getElementById('edit-start').value;
       const tE = document.getElementById('edit-end').value;
 
-      // 送信データのベース
       const eventData = {
         summary: isEdit ? title : '[ToDo] ' + title,
         description: document.getElementById('edit-desc').value,
@@ -247,27 +246,20 @@
           useDefault: false,
           overrides: [{ method: 'popup', minutes: parseInt(document.getElementById('edit-reminder').value) }]
         },
-        // 重要：startとendの構造を初期化
         start: {},
         end: {}
       };
 
       if (tS) {
-        // 【時間指定あり】
         eventData.start.dateTime = `${selectedDate}T${tS}:00`;
         eventData.start.timeZone = 'Asia/Tokyo';
         eventData.end.dateTime   = `${selectedDate}T${tE || tS}:00`;
         eventData.end.timeZone   = 'Asia/Tokyo';
-        
-        // PATCH/PUTのエラー回避：dateフィールドを明示的に消す
         eventData.start.date = null;
         eventData.end.date = null;
       } else {
-        // 【終日】
         eventData.start.date = selectedDate;
         eventData.end.date   = selectedDate;
-        
-        // PATCH/PUTのエラー回避：dateTimeフィールドを明示的に消す
         eventData.start.dateTime = null;
         eventData.end.dateTime   = null;
       }
@@ -278,6 +270,7 @@
         await apiCall(`events`, 'POST', eventData);
       }
     };
+  }
 
   async function apiCall(endpoint, method, body) {
     try {
@@ -291,7 +284,7 @@
         document.getElementById('todo-input').value = "";
       } else {
         const err = await res.json();
-        console.error(err);
+        console.error("API Error Detail:", err);
         showToast("エラー: " + err.error.message);
       }
     } catch (e) { showToast("通信エラー"); }
