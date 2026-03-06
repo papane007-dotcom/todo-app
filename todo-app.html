@@ -157,6 +157,7 @@
       </select>
     </div>
     <div class="modal-footer">
+      <button id="delete-btn" class="auth-btn" style="background:#dc3545; margin-right: auto; display: none;">削除</button>
       <button class="auth-btn" style="background:#333;" onclick="closeModal()">キャンセル</button>
       <button class="btn-add" id="save-btn" style="padding: 8px 24px;">保存</button>
     </div>
@@ -224,13 +225,20 @@
     document.getElementById('modal-overlay').classList.add('show');
     document.querySelector('.modal-header span').textContent = isEdit ? "予定の編集" : "新規追加";
 
-    // 日付の取得（編集なら予定の日付、新規ならカレンダーで選択中の日付）
+    // 削除ボタンの表示制御
+    const deleteBtn = document.getElementById('delete-btn');
+    if (isEdit) {
+      deleteBtn.style.display = "block";
+      deleteBtn.onclick = () => deleteEvent(ev.id);
+    } else {
+      deleteBtn.style.display = "none";
+    }
+
     let dateVal = selectedDate;
     if (isEdit) {
       dateVal = ev.start.dateTime ? ev.start.dateTime.split('T')[0] : ev.start.date;
     }
 
-    // フォーム初期化
     document.getElementById('edit-title').value = isEdit ? (ev.summary || "") : initialTitle;
     document.getElementById('edit-date').value = dateVal;
     document.getElementById('edit-desc').value = isEdit ? (ev.description || "") : "";
@@ -258,8 +266,7 @@
           useDefault: false,
           overrides: [{ method: 'popup', minutes: parseInt(document.getElementById('edit-reminder').value) }]
         },
-        start: {},
-        end: {}
+        start: {}, end: {}
       };
 
       if (tS) {
@@ -267,13 +274,11 @@
         eventData.start.timeZone = 'Asia/Tokyo';
         eventData.end.dateTime   = `${newDate}T${tE || tS}:00`;
         eventData.end.timeZone   = 'Asia/Tokyo';
-        eventData.start.date = null;
-        eventData.end.date = null;
+        eventData.start.date = null; eventData.end.date = null;
       } else {
         eventData.start.date = newDate;
         eventData.end.date   = newDate;
-        eventData.start.dateTime = null;
-        eventData.end.dateTime   = null;
+        eventData.start.dateTime = null; eventData.end.dateTime = null;
       }
 
       if (isEdit) {
@@ -282,6 +287,21 @@
         await apiCall(`events`, 'POST', eventData);
       }
     };
+  }
+
+  async function deleteEvent(eventId) {
+    if (!confirm("この予定を削除してもよろしいですか？")) return;
+    try {
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + accessToken }
+      });
+      if (res.ok) {
+        showToast("🗑️ 削除しました");
+        closeModal();
+        fetchGcalEvents();
+      } else { showToast("❌ 削除失敗"); }
+    } catch (e) { showToast("❌ 通信エラー"); }
   }
 
   async function apiCall(endpoint, method, body) {
@@ -296,7 +316,6 @@
         document.getElementById('todo-input').value = "";
       } else {
         const err = await res.json();
-        console.error("API Error:", err);
         showToast("エラー: " + err.error.message);
       }
     } catch (e) { showToast("通信エラー"); }
@@ -306,7 +325,6 @@
     const year = currentViewDate.getFullYear();
     const month = currentViewDate.getMonth();
     document.getElementById('cal-title').textContent = `${year}年 ${month + 1}月`;
-    
     const grid = document.getElementById('cal-grid');
     grid.innerHTML = "";
     const lastDay = new Date(year, month + 1, 0).getDate();
@@ -321,7 +339,6 @@
       el.onclick = () => { selectedDate = ds; render(); };
       grid.appendChild(el);
     }
-
     const list = document.getElementById('day-events-list');
     document.getElementById('selected-date-label').textContent = selectedDate;
     list.innerHTML = "";
