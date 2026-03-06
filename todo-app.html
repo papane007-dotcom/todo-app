@@ -644,7 +644,7 @@
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      gcalEvents.push({ id: data.id, summary: data.summary, start: data.start, isTodo: true });
+      gcalEvents.push({ id: data.id, summary: data.summary, start: data.start, end: data.end, location: data.location, description: data.description, htmlLink: data.htmlLink, isTodo: true });
       return data.id;
     } catch(e) {
       showToast('カレンダー登録に失敗しました');
@@ -889,7 +889,9 @@
     });
 
     dayGcal.forEach(function(e) {
-      if (e.isTodo) return;
+      // todosに登録済みのイベントは重複表示しない
+      const alreadyShown = todos.some(function(t) { return t.eventId === e.id; });
+      if (alreadyShown) return;
       const el = document.createElement("div");
       el.className = "day-event gcal-event";
       el.style.cursor = "pointer";
