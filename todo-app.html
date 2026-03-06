@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ToDo & Calendar Sync</title>
+  <title>Planner - Google Calendar Sync</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    /* ベースデザイン */
+    /* デザイン設定 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       min-height: 100vh;
@@ -17,26 +17,24 @@
     }
     #app { width: 100%; max-width: 950px; margin: 0 auto; }
 
-    /* ヘッダー・認証 */
     .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
-    h1 { font-size: 32px; font-weight: 300; letter-spacing: -1px; }
+    h1 { font-size: 36px; font-weight: 300; letter-spacing: -1px; }
+
     .auth-bar {
       display: flex; align-items: center; justify-content: space-between;
       background: #1A1A1A; border: 1px solid #2A2A2A;
-      border-radius: 12px; padding: 10px 16px; margin-bottom: 20px;
+      border-radius: 12px; padding: 10px 16px; margin-bottom: 24px;
     }
     .auth-btn {
-      font-size: 12px; padding: 6px 14px; border-radius: 8px; border: none;
-      cursor: pointer; background: #4285F4; color: #fff;
+      font-size: 12px; padding: 8px 16px; border-radius: 8px; border: none;
+      cursor: pointer; background: #4285F4; color: #fff; font-family: inherit;
     }
 
     /* 入力エリア */
-    .input-section {
-      display: flex; gap: 10px; margin-bottom: 24px;
-    }
-    input[type="text"], input[type="time"], input[type="date"], textarea, select {
+    .input-section { display: flex; gap: 10px; margin-bottom: 24px; }
+    input[type="text"], input[type="time"], textarea, select {
       background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 10px;
-      color: #F5F0E8; padding: 12px; font-family: inherit;
+      color: #F5F0E8; padding: 12px; font-family: inherit; width: 100%;
     }
     #todo-input { flex: 1; font-size: 16px; }
     .btn-add {
@@ -48,26 +46,21 @@
     .main-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; }
     @media (max-width: 800px) { .main-layout { grid-template-columns: 1fr; } }
 
-    /* カレンダーパネル */
     .panel { background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 20px; padding: 20px; }
     .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
     .cal-day {
       aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; border-radius: 10px; cursor: pointer; transition: 0.2s;
-      font-size: 14px; position: relative;
+      justify-content: center; border-radius: 10px; cursor: pointer; position: relative;
     }
     .cal-day:hover { background: #2A2A2A; }
     .cal-day.selected { border: 1px solid #F5F0E8; background: #222; }
     .cal-dot { width: 4px; height: 4px; border-radius: 50%; margin-top: 2px; }
 
-    /* 予定リスト */
-    .day-events { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
     .event-card {
       padding: 12px; border-radius: 12px; font-size: 13px; cursor: pointer;
-      border-left: 4px solid #4285F4; background: #222; transition: transform 0.1s;
+      border-left: 4px solid #4285F4; background: #222; margin-bottom: 8px;
     }
-    .event-card:hover { transform: translateX(4px); }
     .event-card.todo { border-left-color: #FF6B6B; }
 
     /* モーダル */
@@ -77,10 +70,9 @@
     }
     .modal-overlay.show { display: flex; }
     .modal {
-      background: #1A1A1A; border: 1px solid #2A2A2A; width: 100%; max-width: 450px;
-      border-radius: 24px; overflow: hidden; animation: fadeIn 0.2s;
+      background: #1A1A1A; border: 1px solid #2A2A2A; width: 100%; max-width: 480px;
+      border-radius: 24px; overflow: hidden;
     }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .modal-header { padding: 20px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; }
     .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
     .modal-footer { padding: 20px; border-top: 1px solid #222; display: flex; justify-content: flex-end; gap: 10px; }
@@ -88,8 +80,7 @@
     #toast {
       position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
       background: #F5F0E8; color: #0F0F0F; padding: 12px 24px;
-      border-radius: 30px; font-size: 14px; font-weight: bold;
-      opacity: 0; transition: 0.3s; z-index: 2000; pointer-events: none;
+      border-radius: 30px; font-size: 14px; opacity: 0; transition: 0.3s; z-index: 2000;
     }
     #toast.show { opacity: 1; }
   </style>
@@ -97,18 +88,15 @@
 <body>
 
 <div id="app">
-  <div class="header">
-    <h1>Planner</h1>
-    <div class="subtitle" id="current-time"></div>
-  </div>
+  <div class="header"><h1>Planner</h1></div>
 
   <div class="auth-bar">
-    <span id="auth-status" style="font-size: 13px; color: #666;">Google連携：未接続</span>
+    <span id="auth-status">Google連携：未接続</span>
     <button class="auth-btn" id="auth-btn" onclick="handleAuth()">連携する</button>
   </div>
 
   <div class="input-section">
-    <input type="text" id="todo-input" placeholder="新しいタスクを入力...">
+    <input type="text" id="todo-input" placeholder="新しい予定やタスクを入力...">
     <button class="btn-add" onclick="addNewTask()">追加</button>
   </div>
 
@@ -121,41 +109,52 @@
       </div>
       <div class="cal-grid" id="cal-grid"></div>
     </div>
-
     <div class="panel">
       <h3 id="selected-date-label" style="margin-bottom: 15px; font-weight: 300;"></h3>
-      <div id="day-events-list" class="day-events"></div>
+      <div id="day-events-list"></div>
     </div>
   </div>
 </div>
 
-<div id="edit-modal-overlay" class="modal-overlay">
+<div id="modal-overlay" class="modal-overlay">
   <div class="modal">
     <div class="modal-header">
-      <span style="font-weight: bold;">予定の編集</span>
+      <span style="font-weight: bold;">予定の詳細</span>
       <button onclick="closeModal()" style="background:none; border:none; color:#666; cursor:pointer; font-size:20px;">×</button>
     </div>
     <div class="modal-body">
-      <label style="font-size:12px; color:#666;">タイトル</label>
+      <label style="font-size:11px; color:#888; text-transform: uppercase;">Title</label>
       <input type="text" id="edit-title">
       
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div>
-          <label style="font-size:12px; color:#666;">開始時刻</label>
+          <label style="font-size:11px; color:#888;">Start</label>
           <input type="time" id="edit-start">
         </div>
         <div>
-          <label style="font-size:12px; color:#666;">終了時刻</label>
+          <label style="font-size:11px; color:#888;">End</label>
           <input type="time" id="edit-end">
         </div>
       </div>
 
-      <label style="font-size:12px; color:#666;">詳細メモ</label>
-      <textarea id="edit-desc" rows="4"></textarea>
+      <label style="font-size:11px; color:#888;">Location</label>
+      <input type="text" id="edit-location" placeholder="場所を追加">
+
+      <label style="font-size:11px; color:#888;">Description</label>
+      <textarea id="edit-desc" rows="3" placeholder="メモを入力"></textarea>
+
+      <label style="font-size:11px; color:#888;">Reminder</label>
+      <select id="edit-reminder">
+        <option value="none">通知なし</option>
+        <option value="10">10分前</option>
+        <option value="30">30分前</option>
+        <option value="60">1時間前</option>
+        <option value="1440">1日前</option>
+      </select>
     </div>
     <div class="modal-footer">
       <button class="auth-btn" style="background:#333;" onclick="closeModal()">キャンセル</button>
-      <button class="btn-add" id="save-btn" style="padding: 8px 20px;">保存</button>
+      <button class="btn-add" id="save-btn" style="padding: 8px 24px;">保存</button>
     </div>
   </div>
 </div>
@@ -163,7 +162,6 @@
 <div id="toast"></div>
 
 <script>
-  // --- 初期設定 ---
   const CLIENT_ID = '330957483713-ejf1f0ncm1brucco4jdt57l9fe3kro6t.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
   
@@ -173,13 +171,12 @@
   let selectedDate = new Date().toISOString().split('T')[0];
   let currentViewDate = new Date();
 
-  // 起動時
   window.onload = () => {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID, scope: SCOPES,
       callback: (resp) => { 
         accessToken = resp.access_token; 
-        document.getElementById('auth-status').textContent = '✅ 連携中';
+        document.getElementById('auth-status').textContent = '✅ Google連携中';
         document.getElementById('auth-btn').textContent = 'ログアウト';
         fetchGcalEvents(); 
       }
@@ -187,25 +184,21 @@
     render();
   };
 
-  // --- 認証 ---
   function handleAuth() {
     if (accessToken) {
       accessToken = null;
       document.getElementById('auth-status').textContent = 'Google連携：未接続';
       document.getElementById('auth-btn').textContent = '連携する';
-      gcalEvents = [];
-      render();
+      gcalEvents = []; render();
     } else {
       tokenClient.requestAccessToken({prompt: 'consent'});
     }
   }
 
-  // --- Googleカレンダー連携 (取得・追加・更新) ---
   async function fetchGcalEvents() {
     if (!accessToken) return;
     const start = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth(), 1).toISOString();
     const end = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth() + 1, 0, 23, 59, 59).toISOString();
-    
     try {
       const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${start}&timeMax=${end}&singleEvents=true&orderBy=startTime`, {
         headers: { 'Authorization': 'Bearer ' + accessToken }
@@ -216,117 +209,105 @@
     } catch (e) { console.error(e); }
   }
 
-  async function addNewTask() {
+  function addNewTask() {
+    if (!accessToken) { alert("Google連携を先に行ってください。"); return; }
     const input = document.getElementById('todo-input');
-    const title = input.value.trim();
-    if (!title) return;
+    openEditModal(null, input.value.trim());
+  }
 
-    if (!accessToken) {
-      alert("先にGoogle連携をしてください。");
-      return;
-    }
+  function openEditModal(ev = null, initialTitle = "") {
+    const isEdit = !!ev;
+    document.getElementById('modal-overlay').classList.add('show');
+    document.querySelector('.modal-header span').textContent = isEdit ? "予定の編集" : "新規追加";
 
-    const event = {
-      summary: '[ToDo] ' + title,
-      start: { date: selectedDate },
-      end: { date: selectedDate }
+    // フォーム初期化
+    document.getElementById('edit-title').value = isEdit ? (ev.summary || "") : initialTitle;
+    document.getElementById('edit-desc').value = isEdit ? (ev.description || "") : "";
+    document.getElementById('edit-location').value = isEdit ? (ev.location || "") : "";
+    
+    const startT = (isEdit && ev.start.dateTime) ? ev.start.dateTime.split('T')[1].substring(0,5) : "";
+    const endT = (isEdit && ev.end.dateTime) ? ev.end.dateTime.split('T')[1].substring(0,5) : "";
+    document.getElementById('edit-start').value = startT;
+    document.getElementById('edit-end').value = endT;
+    document.getElementById('edit-reminder').value = "none";
+
+    document.getElementById('save-btn').onclick = async () => {
+      const title = document.getElementById('edit-title').value;
+      if (!title) return alert("タイトルを入力してください");
+
+      const eventData = {
+        summary: isEdit ? title : '[ToDo] ' + title,
+        description: document.getElementById('edit-desc').value,
+        location: document.getElementById('edit-location').value,
+        reminders: document.getElementById('edit-reminder').value === "none" ? { useDefault: true } : {
+          useDefault: false,
+          overrides: [{ method: 'popup', minutes: parseInt(document.getElementById('edit-reminder').value) }]
+        }
+      };
+
+      const tS = document.getElementById('edit-start').value;
+      const tE = document.getElementById('edit-end').value;
+      if (tS) {
+        eventData.start = { dateTime: `${selectedDate}T${tS}:00`, timeZone: 'Asia/Tokyo' };
+        eventData.end = { dateTime: `${selectedDate}T${tE || tS}:00`, timeZone: 'Asia/Tokyo' };
+      } else {
+        eventData.start = { date: selectedDate };
+        eventData.end = { date: selectedDate };
+      }
+
+      if (isEdit) {
+        await apiCall(`events/${ev.id}`, 'PATCH', eventData);
+      } else {
+        await apiCall(`events`, 'POST', eventData);
+      }
     };
+  }
 
+  async function apiCall(endpoint, method, body) {
     try {
-      const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/${endpoint}`, {
+        method: method,
         headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify(event)
+        body: JSON.stringify(body)
       });
       if (res.ok) {
-        showToast("タスクを追加しました");
-        input.value = "";
-        fetchGcalEvents();
+        showToast("成功しました"); closeModal(); fetchGcalEvents();
+        document.getElementById('todo-input').value = "";
+      } else {
+        const err = await res.json();
+        console.error(err);
+        showToast("エラー: " + err.error.message);
       }
-    } catch (e) { showToast("エラーが発生しました"); }
+    } catch (e) { showToast("通信エラー"); }
   }
 
-	// --- Googleカレンダー予定の更新（PATCH） ---
-	async function updateEvent(eventId, updatedData) {
-	  if (!accessToken) {
-	    showToast("⚠️ ログインし直してください");
-	    return;
-	  }
-
-	  try {
-	    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
-	      method: 'PATCH',
-	      headers: { 
-	        'Authorization': 'Bearer ' + accessToken, 
-	        'Content-Type': 'application/json' 
-	      },
-	      body: JSON.stringify(updatedData)
-	    });
-
-	    const result = await res.json();
-
-	    if (res.ok) {
-	      showToast("✅ 更新しました");
-	      closeModal();
-	      fetchGcalEvents(); 
-	    } else {
-	      // 400エラーの内容を詳細にログ出力
-	      console.error("API Error Detail:", JSON.stringify(result, null, 2));
-	      showToast("❌ 更新失敗: " + (result.error.message || "形式エラー"));
-	    }
-	  } catch (e) {
-	    console.error("Network Error:", e);
-	    showToast("❌ 通信エラー");
-	  }
-	}
-  // --- 描画ロジック ---
   function render() {
-    renderCalendar();
-    renderDayList();
-  }
-
-  function renderCalendar() {
     const year = currentViewDate.getFullYear();
     const month = currentViewDate.getMonth();
     document.getElementById('cal-title').textContent = `${year}年 ${month + 1}月`;
     
     const grid = document.getElementById('cal-grid');
     grid.innerHTML = "";
-    
     const lastDay = new Date(year, month + 1, 0).getDate();
     for (let d = 1; d <= lastDay; d++) {
-      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const dayEl = document.createElement('div');
-      dayEl.className = `cal-day ${dateStr === selectedDate ? 'selected' : ''}`;
-      dayEl.innerHTML = `<span>${d}</span>`;
-      
-      const dayHasEvent = gcalEvents.some(e => (e.start.date || e.start.dateTime).startsWith(dateStr));
-      if (dayHasEvent) {
-        dayEl.innerHTML += `<div class="cal-dot" style="background:#4285F4"></div>`;
+      const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const el = document.createElement('div');
+      el.className = `cal-day ${ds === selectedDate ? 'selected' : ''}`;
+      el.innerHTML = `<span>${d}</span>`;
+      if (gcalEvents.some(e => (e.start.date || e.start.dateTime).startsWith(ds))) {
+        el.innerHTML += `<div class="cal-dot" style="background:#4285F4"></div>`;
       }
-      
-      dayEl.onclick = () => { selectedDate = dateStr; render(); };
-      grid.appendChild(dayEl);
+      el.onclick = () => { selectedDate = ds; render(); };
+      grid.appendChild(el);
     }
-  }
 
-  function renderDayList() {
     const list = document.getElementById('day-events-list');
     document.getElementById('selected-date-label').textContent = selectedDate;
     list.innerHTML = "";
-    
-    const events = gcalEvents.filter(e => (e.start.date || e.start.dateTime).startsWith(selectedDate));
-    
-    if (events.length === 0) {
-      list.innerHTML = "<p style='color:#444; font-size:13px;'>予定はありません</p>";
-      return;
-    }
-
-    events.forEach(ev => {
+    const dayEvents = gcalEvents.filter(e => (e.start.date || e.start.dateTime).startsWith(selectedDate));
+    dayEvents.forEach(ev => {
       const card = document.createElement('div');
-      card.className = "event-card";
-      if (ev.summary && ev.summary.includes('[ToDo]')) card.classList.add('todo');
-      
+      card.className = "event-card" + (ev.summary?.includes('[ToDo]') ? " todo" : "");
       const time = ev.start.dateTime ? ev.start.dateTime.split('T')[1].substring(0,5) : "終日";
       card.innerHTML = `<strong>${time}</strong> ${ev.summary || '(無題)'}`;
       card.onclick = () => openEditModal(ev);
@@ -334,72 +315,11 @@
     });
   }
 
-	// --- モーダル内の保存ボタンの設定（openEditModal内） ---
-	function openEditModal(ev) {
-	  document.getElementById('edit-title').value = ev.summary || "";
-	  document.getElementById('edit-desc').value = ev.description || "";
-	  
-	  // 既存の時間をセット（Google APIの形式から時刻を抽出）
-	  const startT = ev.start.dateTime ? ev.start.dateTime.split('T')[1].substring(0,5) : "";
-	  const endT = ev.end.dateTime ? ev.end.dateTime.split('T')[1].substring(0,5) : "";
-	  document.getElementById('edit-start').value = startT;
-	  document.getElementById('edit-end').value = endT;
-
-	  const saveBtn = document.getElementById('save-btn');
-	  saveBtn.onclick = async () => {
-	    const newTitle = document.getElementById('edit-title').value;
-	    const newDesc = document.getElementById('edit-desc').value;
-	    const newStart = document.getElementById('edit-start').value;
-	    const newEnd = document.getElementById('edit-end').value;
-
-	    // 送信データの土台
-	    const updatedData = {
-	      summary: newTitle,
-	      description: newDesc
-	    };
-
-	    // 時間設定のロジック
-	    if (newStart) {
-	      // 時間指定がある場合
-	      const endTime = newEnd || newStart; // 終了時間がなければ開始と同じにする
-	      updatedData.start = { 
-	        dateTime: `${selectedDate}T${newStart}:00`, 
-	        timeZone: 'Asia/Tokyo' 
-	      };
-	      updatedData.end = { 
-	        dateTime: `${selectedDate}T${endTime}:00`, 
-	        timeZone: 'Asia/Tokyo' 
-	      };
-	      // PATCHでdateTimeを送る場合、古いdateフィールドが残っているとエラーになるためnullでクリア
-	      updatedData.start.date = null;
-	      updatedData.end.date = null;
-	    } else {
-	      // 時間指定がない（終日）場合
-	      updatedData.start = { date: selectedDate };
-	      updatedData.end = { date: selectedDate };
-	      // 同様にdateTimeフィールドをクリア
-	      updatedData.start.dateTime = null;
-	      updatedData.end.dateTime = null;
-	    }
-
-	    await updateEvent(ev.id, updatedData);
-	  };
-
-	  document.getElementById('edit-modal-overlay').classList.add('show');
-	}
-
-  function closeModal() { document.getElementById('edit-modal-overlay').classList.remove('show'); }
-
-  // --- ヘルパー ---
-  function changeMonth(diff) {
-    currentViewDate.setMonth(currentViewDate.getMonth() + diff);
-    fetchGcalEvents();
-  }
-
-  function showToast(msg) {
+  function closeModal() { document.getElementById('modal-overlay').classList.remove('show'); }
+  function changeMonth(d) { currentViewDate.setMonth(currentViewDate.getMonth() + d); fetchGcalEvents(); }
+  function showToast(m) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    t.textContent = m; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
   }
 </script>
