@@ -32,10 +32,11 @@
 
     /* 入力エリア */
     .input-section { display: flex; gap: 10px; margin-bottom: 24px; }
-    input[type="text"], input[type="time"], textarea, select {
+    input[type="text"], input[type="time"], input[type="date"], textarea, select {
       background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 10px;
       color: #F5F0E8; padding: 12px; font-family: inherit; width: 100%;
     }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
     #todo-input { flex: 1; font-size: 16px; }
     .btn-add {
       background: #F5F0E8; color: #0F0F0F; border: none;
@@ -126,6 +127,9 @@
       <label style="font-size:11px; color:#888; text-transform: uppercase;">Title</label>
       <input type="text" id="edit-title">
       
+      <label style="font-size:11px; color:#888;">Date</label>
+      <input type="date" id="edit-date">
+
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div>
           <label style="font-size:11px; color:#888;">Start</label>
@@ -220,8 +224,15 @@
     document.getElementById('modal-overlay').classList.add('show');
     document.querySelector('.modal-header span').textContent = isEdit ? "予定の編集" : "新規追加";
 
+    // 日付の取得（編集なら予定の日付、新規ならカレンダーで選択中の日付）
+    let dateVal = selectedDate;
+    if (isEdit) {
+      dateVal = ev.start.dateTime ? ev.start.dateTime.split('T')[0] : ev.start.date;
+    }
+
     // フォーム初期化
     document.getElementById('edit-title').value = isEdit ? (ev.summary || "") : initialTitle;
+    document.getElementById('edit-date').value = dateVal;
     document.getElementById('edit-desc').value = isEdit ? (ev.description || "") : "";
     document.getElementById('edit-location').value = isEdit ? (ev.location || "") : "";
     
@@ -233,7 +244,8 @@
 
     document.getElementById('save-btn').onclick = async () => {
       const title = document.getElementById('edit-title').value;
-      if (!title) return alert("タイトルを入力してください");
+      const newDate = document.getElementById('edit-date').value;
+      if (!title || !newDate) return alert("タイトルと日付を入力してください");
       
       const tS = document.getElementById('edit-start').value;
       const tE = document.getElementById('edit-end').value;
@@ -251,15 +263,15 @@
       };
 
       if (tS) {
-        eventData.start.dateTime = `${selectedDate}T${tS}:00`;
+        eventData.start.dateTime = `${newDate}T${tS}:00`;
         eventData.start.timeZone = 'Asia/Tokyo';
-        eventData.end.dateTime   = `${selectedDate}T${tE || tS}:00`;
+        eventData.end.dateTime   = `${newDate}T${tE || tS}:00`;
         eventData.end.timeZone   = 'Asia/Tokyo';
         eventData.start.date = null;
         eventData.end.date = null;
       } else {
-        eventData.start.date = selectedDate;
-        eventData.end.date   = selectedDate;
+        eventData.start.date = newDate;
+        eventData.end.date   = newDate;
         eventData.start.dateTime = null;
         eventData.end.dateTime   = null;
       }
@@ -284,7 +296,7 @@
         document.getElementById('todo-input').value = "";
       } else {
         const err = await res.json();
-        console.error("API Error Detail:", err);
+        console.error("API Error:", err);
         showToast("エラー: " + err.error.message);
       }
     } catch (e) { showToast("通信エラー"); }
