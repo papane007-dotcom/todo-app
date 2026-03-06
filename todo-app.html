@@ -578,14 +578,24 @@
       );
       if (!res.ok) throw new Error('fetch error');
       const data = await res.json();
+      const fetchedIds = {};
       gcalEvents = (data.items || []).filter(function(e) {
         return e.start && (e.start.date || e.start.dateTime);
       }).map(function(e) {
+        fetchedIds[e.id] = true;
+        const isTodo = e.summary && e.summary.startsWith('[ToDo]');
         return {
           id: e.id, summary: e.summary, start: e.start, end: e.end,
           location: e.location, description: e.description,
-          htmlLink: e.htmlLink, isTodo: false
+          htmlLink: e.htmlLink, isTodo: isTodo
         };
+      });
+      // todoのeventIdをGCal取得結果と照合して同期
+      todos.forEach(function(t) {
+        if (t.eventId && !fetchedIds[t.eventId]) {
+          // カレンダー側で削除されていたらリセット
+          t.eventId = null;
+        }
       });
       render();
     } catch(e) {
@@ -871,18 +881,22 @@
       el.className = "day-event todo-event";
       el.style.borderColor = CAT_COLORS[t.category];
       el.style.background  = CAT_COLORS[t.category] + "11";
+      el.style.cursor = "pointer";
       el.innerHTML = '<div class="day-event-title">' + escHtml(t.text) + '</div>' +
-                     '<div class="day-event-sub">📋 ToDo · ' + t.category + (t.done ? ' · ✅完了' : '') + '</div>';
+                     '<div class="day-event-sub">📋 ToDo · ' + t.category + (t.done ? ' · ✅完了' : '') + ' · クリックで詳細/編集</div>';
+      el.onclick = function() { showTodoDetail(t.id); };
       evList.appendChild(el);
     });
 
     dayGcal.forEach(function(e) {
-      if (e.isTodo) return; // already shown above
+      if (e.isTodo) return;
       const el = document.createElement("div");
       el.className = "day-event gcal-event";
+      el.style.cursor = "pointer";
       const time = e.start.dateTime ? e.start.dateTime.split("T")[1].substring(0,5) : "終日";
       el.innerHTML = '<div class="day-event-title">' + escHtml(e.summary || "(無題)") + '</div>' +
-                     '<div class="day-event-sub">📅 Googleカレンダー · ' + time + '</div>';
+                     '<div class="day-event-sub">📅 Googleカレンダー · ' + time + ' · クリックで詳細</div>';
+      el.onclick = function() { showGcalDetail(e.id); };
       evList.appendChild(el);
     });
   }
@@ -970,8 +984,10 @@
 
       const del = document.createElement("button");
       del.className = "del-btn";
+      del.title = "削除";
       del.innerHTML = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 2L12 12M12 2L2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-      del.onclick = function() {
+      del.onclick = function(e) {
+        e.stopPropagation();
         if (todo.eventId) deleteFromCalendar(todo.eventId);
         todos = todos.filter(function(t) { return t.id !== todo.id; });
         render();
