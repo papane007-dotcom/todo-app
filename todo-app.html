@@ -246,21 +246,38 @@
     } catch (e) { showToast("エラーが発生しました"); }
   }
 
-  async function updateEvent(eventId, updatedData) {
-    try {
-      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
-        method: 'PATCH',
-        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData)
-      });
-      if (res.ok) {
-        showToast("更新しました");
-        closeModal();
-        fetchGcalEvents();
-      }
-    } catch (e) { showToast("更新に失敗しました"); }
-  }
+	// --- Googleカレンダー予定の更新（PATCH） ---
+	async function updateEvent(eventId, updatedData) {
+	  if (!accessToken) {
+	    showToast("⚠️ ログインし直してください");
+	    return;
+	  }
 
+	  try {
+	    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+	      method: 'PATCH',
+	      headers: { 
+	        'Authorization': 'Bearer ' + accessToken, 
+	        'Content-Type': 'application/json' 
+	      },
+	      body: JSON.stringify(updatedData)
+	    });
+
+	    const result = await res.json();
+
+	    if (res.ok) {
+	      showToast("✅ 更新しました");
+	      closeModal();
+	      fetchGcalEvents(); // リストを再取得
+	    } else {
+	      console.error("API Error:", result);
+	      showToast("❌ 更新失敗: " + (result.error.message || "不明なエラー"));
+	    }
+	  } catch (e) {
+	    console.error("Network Error:", e);
+	    showToast("❌ 通信エラーが発生しました");
+	  }
+	}
   // --- 描画ロジック ---
   function render() {
     renderCalendar();
@@ -316,33 +333,54 @@
     });
   }
 
-  // --- モーダル制御 ---
-  function openEditModal(ev) {
-    document.getElementById('edit-title').value = ev.summary || "";
-    document.getElementById('edit-desc').value = ev.description || "";
-    
-    const startT = ev.start.dateTime ? ev.start.dateTime.split('T')[1].substring(0,5) : "";
-    const endT = ev.end.dateTime ? ev.end.dateTime.split('T')[1].substring(0,5) : "";
-    document.getElementById('edit-start').value = startT;
-    document.getElementById('edit-end').value = endT;
+	  // --- モーダル内の保存ボタンの設定（openEditModal内） ---
+	function openEditModal(ev) {
+	  document.getElementById('edit-title').value = ev.summary || "";
+	  document.getElementById('edit-desc').value = ev.description || "";
+	  
+	  // 既存の時間をセット
+	  const startT = ev.start.dateTime ? ev.start.dateTime.split('T')[1].substring(0,5) : "";
+	  const endT = ev.end.dateTime ? ev.end.dateTime.split('T')[1].substring(0,5) : "";
+	  document.getElementById('edit-start').value = startT;
+	  document.getElementById('edit-end').value = endT;
 
-    document.getElementById('save-btn').onclick = () => {
-      const newTitle = document.getElementById('edit-title').value;
-      const newDesc = document.getElementById('edit-desc').value;
-      const newStart = document.getElementById('edit-start').value;
-      const newEnd = document.getElementById('edit-end').value;
+	  // 保存ボタンの動作を再定義
+	  const saveBtn = document.getElementById('save-btn');
+	  saveBtn.onclick = async () => {
+	    const newTitle = document.getElementById('edit-title').value;
+	    const newDesc = document.getElementById('edit-desc').value;
+	    const newStart = document.getElementById('edit-start').value;
+	    const newEnd = document.getElementById('edit-end').value;
 
-      const updatedData = {
-        summary: newTitle,
-        description: newDesc,
-        start: newStart ? { dateTime: `${selectedDate}T${newStart}:00`, timeZone: 'Asia/Tokyo' } : ev.start,
-        end: newEnd ? { dateTime: `${selectedDate}T${newEnd}:00`, timeZone: 'Asia/Tokyo' } : ev.end
-      };
-      updateEvent(ev.id, updatedData);
-    };
+	    // Google API 形式の構築
+	    const updatedData = {
+	      summary: newTitle,
+	      description: newDesc
+	    };
 
-    document.getElementById('edit-modal-overlay').classList.add('show');
-  }
+	    // 時間が入力されている場合は dateTime、入力がない場合は既存の start/end を維持
+	    if (newStart) {
+	      updatedData.start = { 
+	        dateTime: `${selectedDate}T${newStart}:00`, 
+	        timeZone: 'Asia/Tokyo' 
+	      };
+	      // 終了時間が未入力なら開始時間と同じにする（エラー回避）
+	      const endTime = newEnd || newStart;
+	      updatedData.end = { 
+	        dateTime: `${selectedDate}T${endTime}:00`, 
+	        timeZone: 'Asia/Tokyo' 
+	      };
+	    } else {
+	      // 時間指定がない場合は「終日」イベントとして扱う設定
+	      updatedData.start = { date: selectedDate };
+	      updatedData.end = { date: selectedDate };
+	    }
+
+	    await updateEvent(ev.id, updatedData);
+	  };
+
+	  document.getElementById('edit-modal-overlay').classList.add('show');
+	}
 
   function closeModal() { document.getElementById('edit-modal-overlay').classList.remove('show'); }
 
